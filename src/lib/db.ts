@@ -1,40 +1,50 @@
 import "server-only";
-import { createClient, type InValue } from "@libsql/client";
-import path from "node:path";
+import mysql, { type Pool, type ResultSetHeader, type RowDataPacket } from "mysql2/promise";
 
-// Local dev: a SQLite file. Production (Vercel): set DATABASE_URL (libsql://…) and DATABASE_AUTH_TOKEN, e.g. via Turso.
-const url = process.env.DATABASE_URL ?? `file:${path.join(process.cwd(), "data", "app.db")}`;
-if (process.env.VERCEL && url.startsWith("file:")) {
-  throw new Error("DATABASE_URL is required on Vercel (the filesystem is read-only and ephemeral).");
+// DATABASE_URL e.g. mysql://user:password@host:3306/dbname
+// Remote hosts use TLS by default; set DATABASE_SSL=false to disable (not recommended).
+const url = process.env.DATABASE_URL ?? "mysql://deutsch:deutsch@127.0.0.1:3306/deutsch";
+
+const globalForDb = globalThis as unknown as { __pool?: Pool; __dbReady?: Promise<void> };
+
+function createPool(): Pool {
+  const u = new URL(url);
+  const local = ["localhost", "127.0.0.1", "::1"].includes(u.hostname);
+  const useSsl = process.env.DATABASE_SSL ? process.env.DATABASE_SSL !== "false" : !local;
+  return mysql.createPool({
+    host: u.hostname,
+    port: Number(u.port || 3306),
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    database: u.pathname.replace(/^\//, ""),
+    ssl: useSsl ? { rejectUnauthorized: true } : undefined,
+    charset: "utf8mb4",
+    connectionLimit: 5, // small: serverless functions each hold their own pool
+    waitForConnections: true,
+  });
 }
 
-const client = createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN });
+const pool = (globalForDb.__pool ??= createPool());
 
-const globalForDb = globalThis as unknown as { __dbReady?: Promise<unknown> };
-
-function init() {
-  return client.batch(
-    [
-      `CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        password_hash TEXT NOT NULL,
-        xp INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
-      `CREATE TABLE IF NOT EXISTS progress (
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        step_id TEXT NOT NULL,
-        best_score REAL NOT NULL DEFAULT 0,
-        attempts INTEGER NOT NULL DEFAULT 0,
-        passed INTEGER NOT NULL DEFAULT 0,
-        completed_at TEXT,
-        PRIMARY KEY (user_id, step_id)
-      )`,
-    ],
-    "write",
-  );
+async function init() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS users (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(100) NOT NULL,
+    xp INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) CHARACTER SET utf8mb4`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS progress (
+    user_id INT UNSIGNED NOT NULL,
+    step_id VARCHAR(64) NOT NULL,
+    best_score DOUBLE NOT NULL DEFAULT 0,
+    attempts INT NOT NULL DEFAULT 0,
+    passed TINYINT(1) NOT NULL DEFAULT 0,
+    completed_at TIMESTAMP NULL,
+    PRIMARY KEY (user_id, step_id),
+    CONSTRAINT fk_progress_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) CHARACTER SET utf8mb4`);
 }
 
 async function ready() {
@@ -42,17 +52,20 @@ async function ready() {
   await p;
 }
 
-export async function all<T>(sql: string, args: InValue[] = []): Promise<T[]> {
+type Param = string | number | boolean | null;
+
+export async function all<T>(sql: string, args: Param[] = []): Promise<T[]> {
   await ready();
-  return (await client.execute({ sql, args })).rows as unknown as T[];
+  const [rows] = await pool.execute<RowDataPacket[]>(sql, args);
+  return rows as unknown as T[];
 }
 
-export async function get<T>(sql: string, args: InValue[] = []): Promise<T | undefined> {
+export async function get<T>(sql: string, args: Param[] = []): Promise<T | undefined> {
   return (await all<T>(sql, args))[0];
 }
 
-export async function run(sql: string, args: InValue[] = []) {
+export async function run(sql: string, args: Param[] = []) {
   await ready();
-  const r = await client.execute({ sql, args });
-  return { lastInsertRowid: Number(r.lastInsertRowid ?? 0), rowsAffected: r.rowsAffected };
+  const [r] = await pool.execute<ResultSetHeader>(sql, args);
+  return { lastInsertRowid: r.insertId, rowsAffected: r.affectedRows };
 }

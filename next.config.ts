@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
-  serverExternalPackages: ["bcryptjs", "@libsql/client"],
+  serverExternalPackages: ["bcryptjs", "mysql2"],
 };
 
 export default config;

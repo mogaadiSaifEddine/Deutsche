@@ -48,12 +48,12 @@ export async function recordAttempt(userId: number, stepId: string, type: keyof 
   const prev = await get<{ passed: number }>("SELECT passed FROM progress WHERE user_id = ? AND step_id = ?", [userId, stepId]);
   await run(
     `INSERT INTO progress (user_id, step_id, best_score, attempts, passed, completed_at)
-     VALUES (?, ?, ?, 1, ?, CASE WHEN ? THEN datetime('now') END)
-     ON CONFLICT(user_id, step_id) DO UPDATE SET
-       best_score = MAX(best_score, excluded.best_score),
+     VALUES (?, ?, ?, 1, ?, IF(?, NOW(), NULL))
+     ON DUPLICATE KEY UPDATE
+       best_score = GREATEST(best_score, VALUES(best_score)),
        attempts = attempts + 1,
-       passed = MAX(passed, excluded.passed),
-       completed_at = COALESCE(completed_at, excluded.completed_at)`,
+       passed = GREATEST(passed, VALUES(passed)),
+       completed_at = COALESCE(completed_at, VALUES(completed_at))`,
     [userId, stepId, score, passed ? 1 : 0, passed ? 1 : 0],
   );
   let xpGained = 0;

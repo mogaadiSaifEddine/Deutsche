@@ -14,19 +14,24 @@ A Next.js app for learning German from zero, with accounts and per-user progress
 ## Run
 ```bash
 npm install
-cp .env.example .env.local   # set AUTH_SECRET
+cp .env.example .env.local   # set AUTH_SECRET and DATABASE_URL
 npm run dev                  # http://localhost:3000
 npm test                     # question-engine unit tests
 ```
-Locally, data is stored in `data/app.db` (libSQL/SQLite file).
+Needs a MySQL 8 / MariaDB 10.5+ database. Create one and point `DATABASE_URL` at it:
+```sql
+CREATE DATABASE deutsch CHARACTER SET utf8mb4;
+CREATE USER 'deutsch'@'%' IDENTIFIED BY 'deutsch';
+GRANT ALL ON deutsch.* TO 'deutsch'@'%';
+```
+Tables (`users`, `progress`) are created automatically on first use.
 
 ## Deploy to Vercel
-1. Push this repo to GitHub and import it at vercel.com/new (framework: Next.js, no build settings needed).
-2. Add a database: Vercel dashboard → Storage / Marketplace → **Turso**, connect it to the project. This sets `DATABASE_URL` and `DATABASE_AUTH_TOKEN` (add them by hand if you create the DB elsewhere). Tables are created automatically on first request.
-3. Add the env var `AUTH_SECRET` (`openssl rand -base64 32`).
-4. Deploy.
-
-The app refuses to start on Vercel without `DATABASE_URL`, because Vercel's filesystem is ephemeral.
+Vercel has no database of its own for MySQL, so use a hosted MySQL (PlanetScale, TiDB Cloud, Aiven, AWS RDS, …).
+1. Create the database and copy its connection string (`mysql://user:pass@host:3306/dbname`).
+2. Import the repo at vercel.com/new (framework: Next.js).
+3. Add env vars: `DATABASE_URL` (the string above) and `AUTH_SECRET` (`openssl rand -base64 32`).
+4. Deploy. Remote hosts use TLS by default (`DATABASE_SSL=false` to turn it off). The host must accept connections from Vercel's dynamic IPs.
 
 ## Add content
 Edit `src/content/curriculum.ts`: add a unit (words + phrases) and reference it in a level's `steps`. Steps unlock in order.
