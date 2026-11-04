@@ -1,7 +1,7 @@
 "use server";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { get, run } from "@/lib/db";
 import { createSession, destroySession } from "@/lib/auth";
 
 export type FormState = { error?: string; email?: string; name?: string };
@@ -31,10 +31,15 @@ export async function register(_prev: FormState, form: FormData): Promise<FormSt
   if (!EMAIL_RE.test(email) || email.length > 200) return { ...keep, error: "Please enter a valid email address." };
   if (password.length < 8 || password.length > 100) return { ...keep, error: "Password must be 8–100 characters." };
 
-  if (db.prepare("SELECT 1 FROM users WHERE email = ?").get(email)) return { ...keep, error: "An account with this email already exists." };
+  if (await get("SELECT 1 FROM users WHERE email = ?", [email])) return { ...keep, error: "An account with this email already exists." };
   const hash = await bcrypt.hash(password, 10);
-  const res = db.prepare("INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)").run(email, name, hash);
-  await createSession(Number(res.lastInsertRowid));
+  let id: number;
+  try {
+    id = (await run("INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)", [email, name, hash])).lastInsertRowid;
+  } catch {
+    return { ...keep, error: "An account with this email already exists." };
+  }
+  await createSession(id);
   redirect("/learn");
 }
 
@@ -43,14 +48,14 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   const password = String(form.get("password") ?? "");
   if (throttled(email)) return { email, error: "Too many attempts. Please try again in a few minutes." };
 
-  const row = db.prepare("SELECT id, password_hash FROM users WHERE email = ?").get(email) as { id: number; password_hash: string } | undefined;
+  const row = await get<{ id: number; password_hash: string }>("SELECT id, password_hash FROM users WHERE email = ?", [email]);
   const ok = await bcrypt.compare(password, row?.password_hash ?? DUMMY_HASH);
   if (!row || !ok) {
     noteFailure(email);
     return { email, error: "Incorrect email or password." };
   }
   failures.delete(email);
-  await createSession(row.id);
+  await createSession(Number(row.id));
   redirect("/learn");
 }
 

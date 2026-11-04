@@ -1,14 +1,14 @@
 import "server-only";
-import { db } from "./db";
+import { all, get, run } from "./db";
 import { ALL_STEPS, LEVELS, type Level } from "@/content/curriculum";
 
 export type StepProgress = { passed: boolean; best: number; attempts: number };
 
-export function getProgress(userId: number): Map<string, StepProgress> {
-  const rows = db.prepare("SELECT step_id, best_score, attempts, passed FROM progress WHERE user_id = ?").all(userId) as {
-    step_id: string; best_score: number; attempts: number; passed: number;
-  }[];
-  return new Map(rows.map((r) => [r.step_id, { passed: !!r.passed, best: r.best_score, attempts: r.attempts }]));
+export async function getProgress(userId: number): Promise<Map<string, StepProgress>> {
+  const rows = await all<{ step_id: string; best_score: number; attempts: number; passed: number }>(
+    "SELECT step_id, best_score, attempts, passed FROM progress WHERE user_id = ?", [userId],
+  );
+  return new Map(rows.map((r) => [r.step_id, { passed: !!r.passed, best: Number(r.best_score), attempts: Number(r.attempts) }]));
 }
 
 export type StepState = "done" | "next" | "locked";
@@ -44,9 +44,9 @@ export function levelSummary(progress: Map<string, StepProgress>) {
 const XP = { lesson: 20, checkpoint: 30, test: 60 } as const;
 
 /** Records an attempt. XP is only granted the first time a step is passed. */
-export function recordAttempt(userId: number, stepId: string, type: keyof typeof XP, score: number, passed: boolean) {
-  const prev = db.prepare("SELECT passed FROM progress WHERE user_id = ? AND step_id = ?").get(userId, stepId) as { passed: number } | undefined;
-  db.prepare(
+export async function recordAttempt(userId: number, stepId: string, type: keyof typeof XP, score: number, passed: boolean) {
+  const prev = await get<{ passed: number }>("SELECT passed FROM progress WHERE user_id = ? AND step_id = ?", [userId, stepId]);
+  await run(
     `INSERT INTO progress (user_id, step_id, best_score, attempts, passed, completed_at)
      VALUES (?, ?, ?, 1, ?, CASE WHEN ? THEN datetime('now') END)
      ON CONFLICT(user_id, step_id) DO UPDATE SET
@@ -54,11 +54,12 @@ export function recordAttempt(userId: number, stepId: string, type: keyof typeof
        attempts = attempts + 1,
        passed = MAX(passed, excluded.passed),
        completed_at = COALESCE(completed_at, excluded.completed_at)`,
-  ).run(userId, stepId, score, passed ? 1 : 0, passed ? 1 : 0);
+    [userId, stepId, score, passed ? 1 : 0, passed ? 1 : 0],
+  );
   let xpGained = 0;
   if (passed && !prev?.passed) {
     xpGained = XP[type];
-    db.prepare("UPDATE users SET xp = xp + ? WHERE id = ?").run(xpGained, userId);
+    await run("UPDATE users SET xp = xp + ? WHERE id = ?", [xpGained, userId]);
   }
   return xpGained;
 }

@@ -7,7 +7,7 @@ const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 export default async function LearnPage() {
   const user = await requireUser();
-  const progress = getProgress(user.id);
+  const progress = await getProgress(user.id);
   const states = stepStates(progress);
   const { completed, current } = levelSummary(progress);
 

@@ -15,7 +15,7 @@ export default async function StepPage({ params }: { params: Promise<{ stepId: s
   const user = await requireUser();
   const found = findStep(stepId);
   if (!found) notFound();
-  if (!isUnlocked(getProgress(user.id), stepId)) redirect("/learn");
+  if (!isUnlocked(await getProgress(user.id), stepId)) redirect("/learn");
 
   const { step, level, pos } = found;
   const upcoming = ALL_STEPS[pos + 1];

@@ -18,7 +18,15 @@ cp .env.example .env.local   # set AUTH_SECRET
 npm run dev                  # http://localhost:3000
 npm test                     # question-engine unit tests
 ```
-Requires Node 22.13+ (uses the built-in `node:sqlite`). Data is stored in `data/app.db`.
+Locally, data is stored in `data/app.db` (libSQL/SQLite file).
+
+## Deploy to Vercel
+1. Push this repo to GitHub and import it at vercel.com/new (framework: Next.js, no build settings needed).
+2. Add a database: Vercel dashboard → Storage / Marketplace → **Turso**, connect it to the project. This sets `DATABASE_URL` and `DATABASE_AUTH_TOKEN` (add them by hand if you create the DB elsewhere). Tables are created automatically on first request.
+3. Add the env var `AUTH_SECRET` (`openssl rand -base64 32`).
+4. Deploy.
+
+The app refuses to start on Vercel without `DATABASE_URL`, because Vercel's filesystem is ephemeral.
 
 ## Add content
 Edit `src/content/curriculum.ts`: add a unit (words + phrases) and reference it in a level's `steps`. Steps unlock in order.

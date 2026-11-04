@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
-import { db } from "./db";
+import { get } from "./db";
 
 const COOKIE = "session";
 const MAX_AGE = 60 * 60 * 24 * 30;
@@ -47,8 +47,8 @@ export async function getUser(): Promise<User | null> {
   if (!token) return null;
   const payload = await verify<{ uid: number }>(token);
   if (!payload) return null;
-  const row = db.prepare("SELECT id, email, name, xp FROM users WHERE id = ?").get(payload.uid);
-  return (row as User | undefined) ?? null;
+  const row = await get<User>("SELECT id, email, name, xp FROM users WHERE id = ?", [payload.uid]);
+  return row ? { id: Number(row.id), email: row.email, name: row.name, xp: Number(row.xp) } : null;
 }
 
 export async function requireUser(): Promise<User> {

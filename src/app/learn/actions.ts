@@ -8,9 +8,9 @@ export async function completeLesson(stepId: string, correct: number, total: num
   const user = await requireUser();
   const found = findStep(stepId);
   if (!found || found.step.type !== "lesson") throw new Error("Unknown lesson");
-  if (!isUnlocked(getProgress(user.id), stepId)) throw new Error("Lesson is locked");
+  if (!isUnlocked(await getProgress(user.id), stepId)) throw new Error("Lesson is locked");
   const score = total > 0 ? Math.min(1, Math.max(0, correct / total)) : 0;
-  const xpGained = recordAttempt(user.id, stepId, "lesson", score, true);
+  const xpGained = await recordAttempt(user.id, stepId, "lesson", score, true);
   return { xpGained };
 }
 
@@ -32,13 +32,13 @@ export async function submitAssessment(ticket: string, given: string[]): Promise
   if (!payload || payload.uid !== user.id) throw new Error("Invalid or expired quiz. Please restart it.");
   const found = findStep(payload.stepId);
   if (!found || found.step.type === "lesson") throw new Error("Unknown assessment");
-  if (!isUnlocked(getProgress(user.id), payload.stepId)) throw new Error("Assessment is locked");
+  if (!isUnlocked(await getProgress(user.id), payload.stepId)) throw new Error("Assessment is locked");
 
   const review = payload.key.map((k, i) => ({ ok: isCorrect(k, k.answer, String(given[i] ?? "")), answer: k.answer }));
   const correct = review.filter((r) => r.ok).length;
   const total = review.length;
   const score = total ? correct / total : 0;
   const passed = score >= found.step.passMark;
-  const xpGained = recordAttempt(user.id, payload.stepId, found.step.type, score, passed);
+  const xpGained = await recordAttempt(user.id, payload.stepId, found.step.type, score, passed);
   return { score, correct, total, passed, passMark: found.step.passMark, xpGained, review };
 }
