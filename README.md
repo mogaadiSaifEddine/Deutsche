@@ -31,7 +31,7 @@ Vercel has no database of its own for MySQL, so use a hosted MySQL (PlanetScale,
 1. Create the database and copy its connection string (`mysql://user:pass@host:3306/dbname`).
 2. Import the repo at vercel.com/new (framework: Next.js).
 3. Add env vars: `DATABASE_URL` (the string above) and `AUTH_SECRET` (`openssl rand -base64 32`).
-4. Deploy. Remote hosts use TLS by default (`DATABASE_SSL=false` to turn it off). The host must accept connections from Vercel's dynamic IPs.
+4. Deploy. Remote hosts use TLS: `?ssl-mode=REQUIRED` (Aiven's default) encrypts without checking the CA; for `VERIFY_CA` also set `DATABASE_CA` to the provider's CA certificate. The host must accept connections from Vercel's dynamic IPs.
 
 ## Add content
 Edit `src/content/curriculum.ts`: add a unit (words + phrases) and reference it in a level's `steps`. Steps unlock in order.

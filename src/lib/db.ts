@@ -1,23 +1,33 @@
 import "server-only";
 import mysql, { type Pool, type ResultSetHeader, type RowDataPacket } from "mysql2/promise";
 
-// DATABASE_URL e.g. mysql://user:password@host:3306/dbname
-// Remote hosts use TLS by default; set DATABASE_SSL=false to disable (not recommended).
+// DATABASE_URL e.g. mysql://user:password@host:3306/dbname?ssl-mode=REQUIRED
+// TLS: remote hosts use TLS by default. ?ssl-mode= (or DATABASE_SSL=false to disable) is honoured:
+//   DISABLED          no TLS
+//   REQUIRED          encrypted, server certificate not verified (what Aiven's default URL asks for)
+//   VERIFY_CA / VERIFY_IDENTITY  verify the certificate; provide the host's CA in DATABASE_CA if it isn't a public one
 const url = process.env.DATABASE_URL ?? "mysql://deutsch:deutsch@127.0.0.1:3306/deutsch";
 
 const globalForDb = globalThis as unknown as { __pool?: Pool; __dbReady?: Promise<void> };
 
+function sslOptions(u: URL): mysql.SslOptions | undefined {
+  const local = ["localhost", "127.0.0.1", "::1"].includes(u.hostname);
+  const mode = (u.searchParams.get("ssl-mode") ?? u.searchParams.get("sslmode") ?? (process.env.DATABASE_SSL === "false" ? "DISABLED" : local ? "DISABLED" : "VERIFY_CA")).toUpperCase();
+  if (mode === "DISABLED") return undefined;
+  const ca = process.env.DATABASE_CA?.replace(/\\n/g, "\n");
+  if (mode === "REQUIRED" || mode === "PREFERRED") return { rejectUnauthorized: false, ...(ca ? { ca } : {}) };
+  return { rejectUnauthorized: true, ...(ca ? { ca } : {}) };
+}
+
 function createPool(): Pool {
   const u = new URL(url);
-  const local = ["localhost", "127.0.0.1", "::1"].includes(u.hostname);
-  const useSsl = process.env.DATABASE_SSL ? process.env.DATABASE_SSL !== "false" : !local;
   return mysql.createPool({
     host: u.hostname,
     port: Number(u.port || 3306),
     user: decodeURIComponent(u.username),
     password: decodeURIComponent(u.password),
     database: u.pathname.replace(/^\//, ""),
-    ssl: useSsl ? { rejectUnauthorized: true } : undefined,
+    ssl: sslOptions(u),
     charset: "utf8mb4",
     connectionLimit: 5, // small: serverless functions each hold their own pool
     waitForConnections: true,
