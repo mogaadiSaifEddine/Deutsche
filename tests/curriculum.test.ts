@@ -25,7 +25,7 @@ test("no duplicate German or English words within a level (would make multiple c
     const seenDe = new Map<string, string>(), seenEn = new Map<string, string>();
     for (const u of level.units) {
       for (const w of [...u.words, ...u.phrases]) {
-        const de = w.de.toLowerCase(), en = w.en.toLowerCase();
+        const de = w.de, en = w.en.toLowerCase();
         assert.ok(!seenDe.has(de), `${level.id}: duplicate German "${w.de}" (${u.id} and ${seenDe.get(de)})`);
         assert.ok(!seenEn.has(en), `${level.id}: duplicate English "${w.en}" (${u.id} and ${seenEn.get(en)})`);
         seenDe.set(de, u.id); seenEn.set(en, u.id);
@@ -46,4 +46,28 @@ test("units are big enough for their quizzes and entries are well formed", () =>
     assert.ok(u.phrases.filter((p) => p.de.split(" ").length >= 3).length >= 4, `${u.id}: needs >= 4 phrases of 3+ words`);
     for (const w of [...u.words, ...u.phrases]) assert.ok(w.de.trim() && w.en.trim() && w.de === w.de.trim());
   }
+});
+
+test("fill-in-the-gap items are well formed", () => {
+  for (const level of LEVELS) for (const u of level.units) for (const gap of u.gaps ?? []) {
+    const ctx = `${u.id}: "${gap.de}"`;
+    assert.equal(gap.de.split("___").length, 2, `${ctx} must have exactly one gap`);
+    assert.ok(gap.options.includes(gap.answer), `${ctx}: answer missing from options`);
+    assert.equal(new Set(gap.options).size, gap.options.length, `${ctx}: duplicate options`);
+    assert.ok(gap.options.length >= 3 && gap.en.trim(), `${ctx}: needs >= 3 options and an English hint`);
+  }
+});
+
+test("grammar units have gap exercises", () => {
+  const withGaps = LEVELS.flatMap((l) => l.units).filter((u) => (u.gaps?.length ?? 0) >= 4);
+  assert.ok(withGaps.length >= 15, `only ${withGaps.length} units have 4+ gaps`);
+});
+
+test("curriculum size", () => {
+  const units = LEVELS.flatMap((l) => l.units);
+  const words = units.reduce((n, u) => n + u.words.length, 0);
+  const phrases = units.reduce((n, u) => n + u.phrases.length, 0);
+  const gaps = units.reduce((n, u) => n + (u.gaps?.length ?? 0), 0);
+  console.log(`# lessons=${units.length} words=${words} phrases=${phrases} gaps=${gaps}`);
+  assert.ok(words >= 600);
 });

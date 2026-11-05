@@ -33,3 +33,22 @@ test("generated questions are well formed", () => {
     }
   }
 });
+
+test("gap questions are generated with hint and valid options", () => {
+  const gaps = [
+    { de: "Ich ___ Student.", answer: "bin", options: ["bin", "bist", "ist", "sind"], en: "I am a student." },
+    { de: "Du ___ nett.", answer: "bist", options: ["bin", "bist", "ist", "sind"], en: "You are nice." },
+    { de: "Er ___ müde.", answer: "ist", options: ["bin", "bist", "ist", "sind"], en: "He is tired." },
+  ];
+  let seen = 0;
+  for (let n = 0; n < 30; n++) {
+    const qs = generateQuestions(words, phrases, 10, Math.random, gaps);
+    assert.equal(qs.length, 10);
+    for (const q of qs) if (q.kind === "choice" && q.variant === "gap") {
+      seen++;
+      assert.ok(q.options.includes(q.answer) && q.hint && q.prompt.includes("___"));
+      assert.ok(isCorrect(q, q.answer, q.answer) && !isCorrect(q, q.answer, "xyz"));
+    }
+  }
+  assert.ok(seen > 0);
+});

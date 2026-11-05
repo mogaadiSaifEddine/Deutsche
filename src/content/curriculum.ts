@@ -1,4 +1,12 @@
+import { w } from "./helpers.ts";
+import { A11_MORE } from "./units-a11.ts";
+import { A12_MORE } from "./units-a12.ts";
+import { GAPS } from "./gaps.ts";
+
 export type Word = { de: string; en: string };
+
+/** Fill-in-the-gap grammar item: `de` contains one "___"; `en` is the hint translation. */
+export type Gap = { de: string; answer: string; options: string[]; en: string };
 
 export type Unit = {
   id: string;
@@ -8,6 +16,7 @@ export type Unit = {
   tip: string; // plain text with *emphasis* markers rendered by <Tip/>
   words: Word[];
   phrases: Word[];
+  gaps?: Gap[];
 };
 
 export type Step =
@@ -17,7 +26,6 @@ export type Step =
 
 export type Level = { id: string; title: string; subtitle: string; units: Unit[]; steps: Step[] };
 
-const w = (de: string, en: string): Word => ({ de, en });
 
 const U: Record<string, Unit> = {
   greetings: {
@@ -284,11 +292,14 @@ const U: Record<string, Unit> = {
       w("dreißig", "30"), w("vierzig", "40"), w("fünfzig", "50"), w("sechzig", "60"), w("siebzig", "70"),
       w("achtzig", "80"), w("neunzig", "90"), w("hundert", "100"), w("der Preis", "price"), w("teuer", "expensive"),
       w("billig", "cheap"), w("bezahlen", "to pay"), w("das Geschäft", "shop"), w("die Kasse", "checkout"), w("die Karte", "card"),
+      w("das Kilo", "kilo"), w("das Gramm", "gram"), w("der Liter", "litre"), w("die Packung", "package"),
+      w("die Dose", "can"), w("das Stück", "piece"), w("die Tüte", "carrier bag"),
     ],
     phrases: [
       w("Wie viel kostet das?", "How much does that cost?"), w("Das ist zu teuer.", "That is too expensive."),
       w("Ich nehme das.", "I will take that."), w("Kann ich mit Karte bezahlen?", "Can I pay by card?"),
       w("Das macht fünfzig Euro.", "That comes to fifty euros."),
+      w("Ein Kilo Äpfel, bitte.", "A kilo of apples, please."), w("Ich brauche zwei Liter Milch.", "I need two liters of milk."),
     ],
   },
   body: {
@@ -340,43 +351,81 @@ const U: Record<string, Unit> = {
   },
 };
 
+Object.assign(U, A11_MORE, A12_MORE);
+for (const [id, gaps] of Object.entries(GAPS)) U[id].gaps = gaps;
+
+const lesson = (level: string, unitId: string): Step => ({ id: `${level}-${unitId}`, type: "lesson", unitId });
+const checkpoint = (id: string, title: string, unitIds: string[], questions: number): Step => ({
+  id, type: "checkpoint", title, unitIds, passMark: 0.7, questions,
+});
+
 export const LEVELS: Level[] = [
   {
-    id: "A1.1", title: "A1.1", subtitle: "First steps: greetings, numbers, family, food, colors, countries, animals & objects",
-    units: [U.greetings, U.numbers, U.family, U.food, U.colors, U.countries, U.animals, U.objects],
+    id: "A1.1", title: "A1.1", subtitle: "Getting started: greetings, people, food, things around you, simple questions and sentences",
+    units: [
+      U.greetings, U.numbers, U.family, U.food, U.colors, U.countries, U.animals, U.objects,
+      U.questions, U.connectors, U.adjectives, U.pronouns, U.clothes, U.restaurant, U.classroom, U.personal, U.plurals,
+    ],
     steps: [
-      { id: "a11-greetings", type: "lesson", unitId: "greetings" },
-      { id: "a11-numbers", type: "lesson", unitId: "numbers" },
-      { id: "a11-cp1", type: "checkpoint", title: "Checkpoint 1", unitIds: ["greetings", "numbers"], passMark: 0.7, questions: 10 },
-      { id: "a11-family", type: "lesson", unitId: "family" },
-      { id: "a11-food", type: "lesson", unitId: "food" },
-      { id: "a11-colors", type: "lesson", unitId: "colors" },
-      { id: "a11-cp2", type: "checkpoint", title: "Checkpoint 2", unitIds: ["family", "food", "colors"], passMark: 0.7, questions: 12 },
-      { id: "a11-countries", type: "lesson", unitId: "countries" },
-      { id: "a11-animals", type: "lesson", unitId: "animals" },
-      { id: "a11-objects", type: "lesson", unitId: "objects" },
-      { id: "a11-cp3", type: "checkpoint", title: "Checkpoint 3", unitIds: ["countries", "animals", "objects"], passMark: 0.7, questions: 12 },
-      { id: "a11-test", type: "test", title: "Level Test A1.1", passMark: 0.8, questions: 25 },
+      lesson("a11", "greetings"),
+      lesson("a11", "numbers"),
+      checkpoint("a11-cp1", "Checkpoint 1", ["greetings", "numbers"], 10),
+      lesson("a11", "family"),
+      lesson("a11", "food"),
+      lesson("a11", "colors"),
+      checkpoint("a11-cp2", "Checkpoint 2", ["family", "food", "colors"], 12),
+      lesson("a11", "countries"),
+      lesson("a11", "animals"),
+      lesson("a11", "objects"),
+      checkpoint("a11-cp3", "Checkpoint 3", ["countries", "animals", "objects"], 12),
+      lesson("a11", "questions"),
+      lesson("a11", "connectors"),
+      lesson("a11", "adjectives"),
+      checkpoint("a11-cp4", "Checkpoint 4", ["questions", "connectors", "adjectives"], 12),
+      lesson("a11", "pronouns"),
+      lesson("a11", "clothes"),
+      lesson("a11", "restaurant"),
+      checkpoint("a11-cp5", "Checkpoint 5", ["pronouns", "clothes", "restaurant"], 12),
+      lesson("a11", "classroom"),
+      lesson("a11", "personal"),
+      lesson("a11", "plurals"),
+      checkpoint("a11-cp6", "Checkpoint 6", ["classroom", "personal", "plurals"], 12),
+      { id: "a11-test", type: "test", title: "Level Test A1.1", passMark: 0.8, questions: 30 },
     ],
   },
   {
-    id: "A1.2", title: "A1.2", subtitle: "Everyday life: time, verbs, home, city, shopping, health, weather & jobs",
-    units: [U.time, U["sein-haben"], U.home, U.verbs, U.city, U.shopping, U.body, U.weather, U.jobs],
+    id: "A1.2", title: "A1.2", subtitle: "Everyday life: time, home, city, shopping, health, work, verbs, past tense and travel",
+    units: [
+      U.time, U["sein-haben"], U.home, U.verbs, U.city, U.shopping, U.body, U.weather, U.jobs,
+      U.modal, U.separable, U.irregular, U.routine, U.hobbies, U.celebrations, U.transport, U.places, U.perfekt,
+    ],
     steps: [
-      { id: "a12-time", type: "lesson", unitId: "time" },
-      { id: "a12-sein-haben", type: "lesson", unitId: "sein-haben" },
-      { id: "a12-cp1", type: "checkpoint", title: "Checkpoint 1", unitIds: ["time", "sein-haben"], passMark: 0.7, questions: 10 },
-      { id: "a12-home", type: "lesson", unitId: "home" },
-      { id: "a12-verbs", type: "lesson", unitId: "verbs" },
-      { id: "a12-city", type: "lesson", unitId: "city" },
-      { id: "a12-cp2", type: "checkpoint", title: "Checkpoint 2", unitIds: ["home", "verbs", "city"], passMark: 0.7, questions: 12 },
-      { id: "a12-shopping", type: "lesson", unitId: "shopping" },
-      { id: "a12-body", type: "lesson", unitId: "body" },
-      { id: "a12-cp3", type: "checkpoint", title: "Checkpoint 3", unitIds: ["shopping", "body"], passMark: 0.7, questions: 10 },
-      { id: "a12-weather", type: "lesson", unitId: "weather" },
-      { id: "a12-jobs", type: "lesson", unitId: "jobs" },
-      { id: "a12-cp4", type: "checkpoint", title: "Checkpoint 4", unitIds: ["weather", "jobs"], passMark: 0.7, questions: 10 },
-      { id: "a12-test", type: "test", title: "Level Test A1.2", passMark: 0.8, questions: 25 },
+      lesson("a12", "time"),
+      lesson("a12", "sein-haben"),
+      checkpoint("a12-cp1", "Checkpoint 1", ["time", "sein-haben"], 10),
+      lesson("a12", "home"),
+      lesson("a12", "verbs"),
+      lesson("a12", "city"),
+      checkpoint("a12-cp2", "Checkpoint 2", ["home", "verbs", "city"], 12),
+      lesson("a12", "shopping"),
+      lesson("a12", "body"),
+      checkpoint("a12-cp3", "Checkpoint 3", ["shopping", "body"], 10),
+      lesson("a12", "weather"),
+      lesson("a12", "jobs"),
+      checkpoint("a12-cp4", "Checkpoint 4", ["weather", "jobs"], 10),
+      lesson("a12", "modal"),
+      lesson("a12", "separable"),
+      lesson("a12", "irregular"),
+      checkpoint("a12-cp5", "Checkpoint 5", ["modal", "separable", "irregular"], 12),
+      lesson("a12", "routine"),
+      lesson("a12", "hobbies"),
+      lesson("a12", "celebrations"),
+      checkpoint("a12-cp6", "Checkpoint 6", ["routine", "hobbies", "celebrations"], 12),
+      lesson("a12", "transport"),
+      lesson("a12", "places"),
+      lesson("a12", "perfekt"),
+      checkpoint("a12-cp7", "Checkpoint 7", ["transport", "places", "perfekt"], 12),
+      { id: "a12-test", type: "test", title: "Level Test A1.2", passMark: 0.8, questions: 30 },
     ],
   },
 ];

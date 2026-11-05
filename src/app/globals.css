@@ -100,3 +100,6 @@ a.step-in:hover { border-color: var(--brand); }
 .review li { display: flex; gap: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
 .review li.ok span { color: var(--ok); } .review li.bad span { color: var(--bad); } .review li.bad { background: var(--bad-bg); }
 .review div { display: grid; } .review small { color: var(--muted); }
+
+.gap-sentence { font-size: 1.35rem; line-height: 1.4; }
+.hint { margin: -10px 0 16px; font-style: italic; }

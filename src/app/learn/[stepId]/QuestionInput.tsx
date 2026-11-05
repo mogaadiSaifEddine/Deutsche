@@ -15,6 +15,7 @@ const HEADINGS: Record<string, string> = {
   "en-de": "How do you say this in German?",
   listen: "Listen and choose the meaning",
   article: "Which article?",
+  gap: "Choose the missing word",
 };
 
 export function QuestionInput({
@@ -40,9 +41,10 @@ export function QuestionInput({
       {q.kind === "choice" && (
         <>
           <div className="prompt">
-            {q.variant === "listen" ? <SpeakButton text={q.audio!} /> : <span>{q.prompt}</span>}
+            {q.variant === "listen" ? <SpeakButton text={q.audio!} /> : <span className={q.variant === "gap" ? "gap-sentence" : ""}>{q.prompt}</span>}
             {q.variant === "de-en" && <SpeakButton text={q.audio!} />}
           </div>
+          {q.hint && <p className="muted hint">{q.hint}</p>}
           <div className={`options ${q.variant === "article" ? "three" : ""}`}>
             {q.options.map((o) => {
               const cls = [

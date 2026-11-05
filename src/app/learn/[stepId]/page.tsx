@@ -27,13 +27,15 @@ export default async function StepPage({ params }: { params: Promise<{ stepId: s
       {step.type === "lesson" ? (
         (() => {
           const unit = unitById(level, step.unitId);
-          const questions = generateQuestions(unit.words, unit.phrases, 10);
+          const questions = generateQuestions(unit.words, unit.phrases, 10, Math.random, unit.gaps ?? []);
           return <LessonClient stepId={step.id} unit={unit} questions={questions} />;
         })()
       ) : (
         await (async () => {
           const units = step.type === "test" ? level.units : step.unitIds.map((id) => unitById(level, id));
-          const questions = generateQuestions(units.flatMap((u) => u.words), units.flatMap((u) => u.phrases), step.questions);
+          const questions = generateQuestions(
+            units.flatMap((u) => u.words), units.flatMap((u) => u.phrases), step.questions, Math.random, units.flatMap((u) => u.gaps ?? []),
+          );
           const ticket = await makeTicket(user.id, step.id, questions);
           return (
             <AssessmentClient

@@ -1,7 +1,7 @@
-import type { Word } from "../content/curriculum";
+import type { Gap, Word } from "../content/curriculum";
 
 export type Question =
-  | { id: string; kind: "choice"; variant: "de-en" | "en-de" | "listen" | "article"; prompt: string; audio?: string; options: string[]; answer: string }
+  | { id: string; kind: "choice"; variant: "de-en" | "en-de" | "listen" | "article" | "gap"; prompt: string; hint?: string; audio?: string; options: string[]; answer: string }
   | { id: string; kind: "type"; prompt: string; answer: string }
   | { id: string; kind: "build"; prompt: string; tokens: string[]; answer: string };
 
@@ -54,13 +54,14 @@ function pickOptions(correct: string, pool: string[], rng: Rng, n = 4): string[]
 
 /**
  * Builds `count` mixed questions from the given vocabulary and phrases.
- * ~25% sentence-building questions, the rest vocabulary (translate, listen, article, type).
+ * ~30% fill-in-the-gap grammar, ~20% sentence building, the rest vocabulary (translate, listen, article, type).
  */
-export function generateQuestions(words: Word[], phrases: Word[], count: number, rng: Rng = Math.random): Question[] {
+export function generateQuestions(words: Word[], phrases: Word[], count: number, rng: Rng = Math.random, gaps: Gap[] = []): Question[] {
   // Sentence building needs at least 3 words to be a meaningful exercise.
   phrases = phrases.filter((p) => p.de.split(/\s+/).length >= 3);
-  const nPhrases = Math.min(phrases.length, Math.round(count * 0.25));
-  const nWords = Math.min(words.length, count - nPhrases);
+  const nGaps = Math.min(gaps.length, Math.round(count * 0.3));
+  const nPhrases = Math.min(phrases.length, Math.round(count * 0.2));
+  const nWords = Math.min(words.length, count - nPhrases - nGaps);
   const questions: Question[] = [];
   const dePool = words.map((w) => w.de);
   const enPool = words.map((w) => w.en);
@@ -92,6 +93,13 @@ export function generateQuestions(words: Word[], phrases: Word[], count: number,
   shuffle(phrases, rng).slice(0, nPhrases).forEach((p, i) => {
     const tokens = p.de.split(/\s+/);
     questions.push({ id: `p${i}`, kind: "build", prompt: p.en, tokens: shuffle(tokens, rng), answer: p.de });
+  });
+
+  shuffle(gaps, rng).slice(0, nGaps).forEach((gap, i) => {
+    questions.push({
+      id: `g${i}`, kind: "choice", variant: "gap", prompt: gap.de, hint: gap.en,
+      options: shuffle(gap.options, rng), answer: gap.answer,
+    });
   });
 
   return shuffle(questions, rng).map((q, i) => ({ ...q, id: `q${i}` }));
