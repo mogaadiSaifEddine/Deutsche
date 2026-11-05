@@ -57,6 +57,8 @@ function pickOptions(correct: string, pool: string[], rng: Rng, n = 4): string[]
  * ~25% sentence-building questions, the rest vocabulary (translate, listen, article, type).
  */
 export function generateQuestions(words: Word[], phrases: Word[], count: number, rng: Rng = Math.random): Question[] {
+  // Sentence building needs at least 3 words to be a meaningful exercise.
+  phrases = phrases.filter((p) => p.de.split(/\s+/).length >= 3);
   const nPhrases = Math.min(phrases.length, Math.round(count * 0.25));
   const nWords = Math.min(words.length, count - nPhrases);
   const questions: Question[] = [];

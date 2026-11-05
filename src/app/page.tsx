@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
+import { ALL_STEPS } from "@/content/curriculum";
 
 export default async function Home() {
   if (await getUser()) redirect("/learn");
@@ -13,7 +14,7 @@ export default async function Home() {
         <Link href="/login" className="btn ghost">I have an account</Link>
       </div>
       <ul className="features">
-        <li><b>A1.1 → A1.2</b><span>Two levels, ten lessons</span></li>
+        <li><b>A1.1 → A1.2</b><span>Two levels, {ALL_STEPS.filter((s) => s.step.type === "lesson").length} lessons</span></li>
         <li><b>Checkpoints</b><span>Quick quizzes after a few lessons</span></li>
         <li><b>Level tests</b><span>Pass to unlock the next level</span></li>
       </ul>
